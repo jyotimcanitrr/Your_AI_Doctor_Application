@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
+import LandingPage from './components/LandingPage';
 import RegistrationForm from './components/RegistrationForm';
 import DashboardMain from './components/DashboardMain';
 import AIDoctorChat from './components/AIDoctorChat';
@@ -21,6 +22,7 @@ function App() {
     <Router>
       <Routes>
         {/* Public Routes */}
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<RegistrationForm />} />
 
@@ -57,9 +59,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-        {/* Default Route */}
-        <Route path="/" element={<Navigate to="/login" />} />
       </Routes>
     </Router>
   );
