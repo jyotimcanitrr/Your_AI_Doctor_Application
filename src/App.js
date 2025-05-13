@@ -8,7 +8,7 @@ import AIDoctorChat from './components/AIDoctorChat';
 import AppointmentBooking from './components/AppointmentBooking';
 import DepartmentDetails from './components/DepartmentDetails';
 
-// Protected Route Component
+// Protected Route Component - Handles authentication
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -17,6 +17,7 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+// Main App Component with all routes
 function App() {
   return (
     <Router>
