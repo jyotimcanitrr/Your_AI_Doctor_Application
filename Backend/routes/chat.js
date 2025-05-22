@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
+const ChatMessage = require('../models/ChatMessage');
+const jwt = require('jsonwebtoken');
 
 // Gemini API configuration
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -47,36 +49,56 @@ async function getGeminiResponse(message) {
   }
 }
 
+function getUserIdFromToken(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return null;
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    return decoded.id;
+  } catch {
+    return null;
+  }
+}
+
 // Chat endpoint
 router.post('/', async (req, res) => {
   try {
     const { message } = req.body;
-    console.log('Received Message:', message); // Debug log
+    const userId = getUserIdFromToken(req);
 
-    if (!message) {
-      return res.status(400).json({
-        error: 'Message is required'
-      });
-    }
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!message) return res.status(400).json({ error: 'Message is required' });
 
-    // Get response from Gemini API
-    const geminiResponse = await getGeminiResponse(message);
-    
-    if (geminiResponse) {
-      console.log('Success Response:', geminiResponse); // Debug log
-      res.json({ response: geminiResponse });
-    } else {
-      console.log('Fallback Response Used'); // Debug log
-      res.json({
-        response: "I apologize, but I'm having trouble processing your request. Please try rephrasing your question or consult a healthcare professional for immediate assistance."
-      });
-    }
-  } catch (error) {
-    console.error('Route Error:', error); // Debug log
-    res.status(500).json({
-      error: 'An error occurred while processing your request'
+    // Save user message
+    await ChatMessage.create({
+      userId,
+      sender: 'user',
+      message
     });
+
+    // Get AI response
+    const geminiResponse = await getGeminiResponse(message);
+
+    // Save AI reply
+    await ChatMessage.create({
+      userId,
+      sender: 'ai',
+      message: geminiResponse || "I apologize, but I'm having trouble processing your request."
+    });
+
+    res.json({ response: geminiResponse });
+  } catch (error) {
+    res.status(500).json({ error: 'An error occurred while processing your request' });
   }
+});
+
+router.get('/history', async (req, res) => {
+  const userId = getUserIdFromToken(req);
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+  const history = await ChatMessage.find({ userId }).sort({ timestamp: 1 });
+  res.json({ history });
 });
 
 module.exports = router; 
