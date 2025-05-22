@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import jwt_decode from 'jwt-decode';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -24,29 +25,73 @@ const Login = () => {
     setError('');
 
     try {
-      console.log('Attempting login with:', formData.email);
       const response = await axios.post('http://localhost:5000/login', {
         email: formData.email,
         password: formData.password
       });
 
-      console.log('Login response:', response.data);
-
       if (response.data.token) {
-        // Save token and user data
+        // Save token
         localStorage.setItem('token', response.data.token);
-        localStorage.setItem('userEmail', formData.email);
         
-        // Navigate to dashboard
+        // Check token expiration
+        const decoded = jwt_decode(response.data.token);
+        const expirationTime = decoded.exp * 1000; // Convert to milliseconds
+        const currentTime = Date.now();
+        
+        console.log('Token expires at:', new Date(expirationTime));
+        console.log('Current time:', new Date(currentTime));
+        
+        // Set timeout for token expiration (5 minutes)
+        setTimeout(() => {
+          localStorage.removeItem('token');
+          window.location.href = '/login';
+        }, 5 * 60 * 1000); // 5 minutes in milliseconds
+
+        // Navigate to dashboard immediately after successful login
         navigate('/dashboardMain');
-      } else {
-        throw new Error('Invalid response format');
       }
     } catch (error) {
       console.error('Login error:', error);
       setError(error.response?.data?.message || 'Invalid email or password');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const makeAPICall = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = '/login';
+        return;
+      }
+
+      // Check if token is expired
+      const decoded = jwt_decode(token);
+      const currentTime = Date.now() / 1000;
+      
+      // Only redirect if token is expired
+      if (decoded.exp < currentTime) {
+        console.log('Token expired at:', new Date(decoded.exp * 1000));
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+        return;
+      }
+
+      const response = await fetch('/api/data', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      // Only redirect on 401 status
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
+    } catch (error) {
+      console.error('API call failed:', error);
     }
   };
 
